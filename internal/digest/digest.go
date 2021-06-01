@@ -38,6 +38,7 @@ const (
 	failedFormat   = "failed: %s"
 )
 
+// New returns an initialized *Digester ready to be used
 func New(parallel int) *Digester {
 	return &Digester{
 		parallel: parallel,
@@ -47,6 +48,12 @@ func New(parallel int) *Digester {
 	}
 }
 
+// SetTimeout modifies the request timeout of the underlying http client
+func (d *Digester) SetTimeout(t time.Duration) {
+	d.client.Timeout = t
+}
+
+// Run spawns as many works as specified for this digester
 func (d *Digester) Run(URLs ...string) map[string]string {
 	jobs := make(chan job, d.parallel)
 	results := make(chan result)
@@ -97,23 +104,19 @@ func (d *Digester) worker(jobs <-chan job, results chan<- result) {
 	}
 }
 
-func (d *Digester) SetTimeout(t time.Duration) {
-	d.client.Timeout = t
-}
-
 func (d *Digester) fetchHash(url string) (string, error) {
 	rsp, err := d.client.Get(url)
 	if err != nil {
 		return "", err
 	}
 
-	if rsp.StatusCode != http.StatusOK {
-		return "", newHttpError(fmt.Sprintf("remote returned rsp code %d", rsp.StatusCode))
+	if rsp.StatusCode >= http.StatusBadRequest {
+		return "", newHttpError("remote returned rsp code %d", rsp.StatusCode)
 	}
 
 	body, err := ioutil.ReadAll(rsp.Body)
 	if err != nil {
-		return "", newByteError(fmt.Sprintf("failed to read response body (%s)", err))
+		return "", newByteError("failed to read response body (%s)", err)
 	}
 
 	md5Sum := md5.Sum(body)
@@ -121,10 +124,10 @@ func (d *Digester) fetchHash(url string) (string, error) {
 	return fmt.Sprintf("%x", md5Sum), nil
 }
 
-func newHttpError(msg string) HttpError {
-	return errors.New(msg)
+func newHttpError(format string, a ...interface{}) HttpError {
+	return HttpError(errors.New(fmt.Sprintf(format, a...)))
 }
 
-func newByteError(msg string) ByteError {
-	return errors.New(msg)
+func newByteError(format string, a ...interface{}) ByteError {
+	return ByteError(errors.New(fmt.Sprintf(format, a...)))
 }
