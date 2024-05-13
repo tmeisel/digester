@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/tmeisel/digester/internal/digest"
+	"github.com/tmeisel/digester/pkg/digest"
 )
 
 const DefaultParallel = 10
